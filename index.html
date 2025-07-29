@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .game-mode {
+            margin-bottom: 20px;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: white;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .cell:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .status {
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .x {
+            color: #f44336;
+        }
+        
+        .o {
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tic Tac Toe</h1>
+    <div class="game-mode">
+        <button id="playX">Play as X (First)</button>
+        <button id="playO">Play as O (Second)</button>
+    </div>
+    <div class="status" id="status">Select your player</div>
+    <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+    <div class="controls">
+        <button id="restartBtn">Restart Game</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const board = document.getElementById('board');
+            const cells = document.querySelectorAll('.cell');
+            const status = document.getElementById('status');
+            const restartBtn = document.getElementById('restartBtn');
+            const playXBtn = document.getElementById('playX');
+            const playOBtn = document.getElementById('playO');
+            
+            let currentPlayer = 'X';
+            let gameState = ['', '', '', '', '', '', '', '', ''];
+            let gameActive = false;
+            let playerSymbol = '';
+            let computerSymbol = '';
+            let vsComputer = false;
+            
+            const winningConditions = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                [0, 4, 8], [2, 4, 6]             // diagonals
+            ];
+            
+            // Initialize game
+            function initGame() {
+                gameState = ['', '', '', '', '', '', '', '', ''];
+                gameActive = true;
+                cells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('x', 'o');
+                });
+                
+                if (vsComputer) {
+                    if (currentPlayer === computerSymbol) {
+                        computerMove();
+                    }
+                }
+            }
+            
+            // Handle cell click
+            function handleCellClick(e) {
+                if (!gameActive || !vsComputer) return;
+                
+                const clickedCell = e.target;
+                const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+                
+                // If cell is already filled, ignore the click
+                if (gameState[clickedCellIndex] !== '' || currentPlayer !== playerSymbol) {
+                    return;
+                }
+                
+                // Update game state and UI
+                makeMove(clickedCellIndex, currentPlayer);
+                
+                // Check for win or draw
+                if (checkResult()) return;
+                
+                // Computer's turn
+                if (gameActive && vsComputer && currentPlayer === computerSymbol) {
+                    setTimeout(computerMove, 500); // Add slight delay for better UX
+                }
+            }
+            
+            // Make a move
+            function makeMove(index, player) {
+                gameState[index] = player;
+                cells[index].textContent = player;
+                cells[index].classList.add(player.toLowerCase());
+                currentPlayer = player === 'X' ? 'O' : 'X';
+                status.textContent = vsComputer ? 
+                    (currentPlayer === playerSymbol ? 'Your turn' : 'Computer thinking...') :
+                    `Player ${currentPlayer}'s turn`;
+            }
+            
+            // Computer makes a move
+            function computerMove() {
+                if (!gameActive) return;
+                
+                // Simple AI: Try to win, then block, then choose center, then random
+                let move = findWinningMove(computerSymbol) || 
+                            findWinningMove(playerSymbol) || 
+                            (gameState[4] === '' ? 4 : null) || 
+                            findRandomMove();
+                
+                if (move !== null) {
+                    makeMove(move, computerSymbol);
+                    checkResult();
+                }
+            }
+            
+            // Find a winning move for the given player
+            function findWinningMove(player) {
+                for (let condition of winningConditions) {
+                    const [a, b, c] = condition;
+                    // Check if two in a row with one empty
+                    if (gameState[a] === player && gameState[b] === player && gameState[c] === '') return c;
+                    if (gameState[a] === player && gameState[c] === player && gameState[b] === '') return b;
+                    if (gameState[b] === player && gameState[c] === player && gameState[a] === '') return a;
+                }
+                return null;
+            }
+            
+            // Find a random available move
+            function findRandomMove() {
+                const availableMoves = gameState
+                    .map((cell, index) => cell === '' ? index : null)
+                    .filter(val => val !== null);
+                
+                return availableMoves.length > 0 ? 
+                    availableMoves[Math.floor(Math.random() * availableMoves.length)] : 
+                    null;
+            }
+            
+            // Check if the current player has won or if it's a draw
+            function checkResult() {
+                // Check for win
+                for (let condition of winningConditions) {
+                    const [a, b, c] = condition;
+                    if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+                        gameActive = false;
+                        const winner = gameState[a];
+                        status.textContent = vsComputer ? 
+                            (winner === playerSymbol ? 'You win!' : 'Computer wins!') :
+                            `Player ${winner} wins!`;
+                        return true;
+                    }
+                }
+                
+                // Check for draw
+                if (!gameState.includes('')) {
+                    gameActive = false;
+                    status.textContent = "Game ended in a draw!";
+                    return true;
+                }
+                
+                return false;
+            }
+            
+            // Restart the game
+            function restartGame() {
+                if (!vsComputer) return;
+                currentPlayer = 'X';
+                initGame();
+            }
+            
+            // Set player vs computer
+            function setPlayer(symbol) {
+                playerSymbol = symbol;
+                computerSymbol = symbol === 'X' ? 'O' : 'X';
+                vsComputer = true;
+                currentPlayer = 'X';
+                
+                playXBtn.disabled = true;
+                playOBtn.disabled = true;
+                
+                status.textContent = `You are ${playerSymbol}. ${playerSymbol === 'X' ? 'Your turn first!' : 'Computer goes first.'}`;
+                
+                initGame();
+            }
+            
+            // Event listeners
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+            
+            restartBtn.addEventListener('click', restartGame);
+            playXBtn.addEventListener('click', () => setPlayer('X'));
+            playOBtn.addEventListener('click', () => setPlayer('O'));
+        });
+    </script>
+</body>
+</html>
